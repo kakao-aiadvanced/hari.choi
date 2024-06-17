@@ -1,5 +1,5 @@
 # user_prompt = "how to make cookie?"
-user_prompt = "111*111?"
+user_prompt = "how did world war I end?"
 prompt=f"""
 <|begin_of_text|><|start_header_id|>system<|end_header_id|>
 You are an AI designed to answer users' questions in a friendly and detailed manner. Your response should follow specific guidelines based on the subject of the question. Use the guidelines below to shape your answers:
