@@ -6,6 +6,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain.schema import Document
+import json
 
 # API 키 파일에서 읽기
 def load_api_key(file_path='apikey.txt'):
@@ -56,7 +57,30 @@ def save_to_chroma_db(documents, embedding_function):
 
   print("There are", vectordb._collection.count(), "documents in the collection")
 
+  # 임베딩된 문서와 임베딩을 파일로 저장
+  embeddings = [doc.page_content for doc in documents]
+  metadata = [doc.metadata for doc in documents]
+  data = {
+    'embeddings': embeddings,
+    'metadata': metadata
+  }
+  with open('chroma_collection.json', 'w', encoding='utf-8') as f:
+    json.dump(data, f)
+
   return vectordb
+
+def load_chroma_db(embedding_function):
+  """파일에서 Chroma DB를 로드"""
+  with open('chroma_collection.json', 'r', encoding='utf-8') as f:
+    data = json.load(f)
+
+  documents = [Document(page_content=emb, metadata=meta) for emb, meta in zip(data['embeddings'], data['metadata'])]
+  vectordb = Chroma.from_documents(documents=documents, embedding=embedding_function)
+  return vectordb
+
+def retrieve_related_chunks(query, vectordb):
+  results = vectordb.similarity_search(query)  # k는 검색할 유사한 문서의 개수
+  return results
 
 # URL 목록을 로드하고 분할된 텍스트를 얻음
 split_texts = load_and_split_urls(urls)
@@ -70,11 +94,19 @@ documents = [Document(page_content=text) for text in all_texts]
 # 임베딩 함수 생성
 embedding_function = OpenAIEmbeddings(model="text-embedding-ada-002", openai_api_key=openai.api_key)
 
-# 임베딩을 Chroma DB에 저장
-collection = save_to_chroma_db(documents, embedding_function)
+# Chroma DB를 저장한 파일이 있는지 확인
+if os.path.exists('chroma_collection.json'):
+  collection = load_chroma_db(embedding_function)
+else:
+  collection = save_to_chroma_db(documents, embedding_function)
 
-# 결과 출력 (예시로 첫 번째 문서의 첫 번째 분할 텍스트를 출력)
-for i, doc_splits in enumerate(split_texts):
-  print(f"Document {i+1} split parts:")
-  for j, split_part in enumerate(doc_splits):
-    print(f" Part {j+1}: {split_part[:200]}...")  # 첫 200자만 출력
+# 사용자 쿼리 입력
+user_query = "agent memory"
+
+# 관련된 청크 검색
+related_chunks = retrieve_related_chunks(user_query, collection)
+
+# 검색 결과 출력
+print("Related chunks for query 'agent memory':")
+for i, chunk in enumerate(related_chunks):
+  print(f" Chunk {i+1}: {chunk.page_content[:200]}...")  # 첫 200자만 출력
